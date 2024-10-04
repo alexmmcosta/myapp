@@ -18,7 +18,7 @@ class Task {
 }
 
 void main() {
-  runApp(PomodoroApp());
+  runApp(const PomodoroApp());
 }
 
 class PomodoroApp extends StatelessWidget {
@@ -45,15 +45,15 @@ class PomodoroApp extends StatelessWidget {
           buttonColor: Colors.blueAccent, // Sporty accent color for buttons
         ),
         iconTheme: const IconThemeData(color: Colors.white), // White icons globally
-        dropdownMenuTheme: DropdownMenuThemeData(
-          textStyle: const TextStyle(color: Colors.white), // White text for dropdown
+        dropdownMenuTheme: const DropdownMenuThemeData(
+          textStyle: TextStyle(color: Colors.white), // White text for dropdown
         ),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
           backgroundColor:
               Colors.blueAccent, // Accent color for floating action buttons
         ),
       ),
-      home: PomodoroTimer(),
+      home: const PomodoroTimer(),
     );
   }
 }
@@ -143,7 +143,7 @@ class _PomodoroTimerState extends State<PomodoroTimer> {
       _saveTasks(); // Save the task with the updated Pomodoro count
     }
 
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         if (_timeRemaining > 0) {
           _timeRemaining--;
@@ -205,14 +205,14 @@ class _PomodoroTimerState extends State<PomodoroTimer> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Pomodoro Timer'),
+        title: const Text('Pomodoro Timer'),
         actions: [
           IconButton(
-            icon: Icon(Icons.settings),
+            icon: const Icon(Icons.settings),
             onPressed: _openSettings,
           ),
           IconButton(
-            icon: Icon(Icons.analytics),
+            icon: const Icon(Icons.analytics),
             onPressed: () {
               Navigator.push(
                 context,
@@ -221,7 +221,7 @@ class _PomodoroTimerState extends State<PomodoroTimer> {
             },
           ),
           IconButton(
-            icon: Icon(Icons.list),
+            icon: const Icon(Icons.list),
             onPressed: () {
               Navigator.push(
                 context,
@@ -236,7 +236,7 @@ class _PomodoroTimerState extends State<PomodoroTimer> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             DropdownButton<Task>(
-              hint: Text('Select Task'),
+              hint: const Text('Select Task'),
               value: _currentTask,
               onChanged: (Task? newTask) {
                 setState(() {
@@ -254,13 +254,13 @@ class _PomodoroTimerState extends State<PomodoroTimer> {
               _isBreak
                   ? (_pomodoroCount % 4 == 0 ? 'Long Break' : 'Break')
                   : 'Pomodoro',
-              style: TextStyle(fontSize: 32),
+              style: const TextStyle(fontSize: 32),
             ),
             Text(
               _formatTime(_timeRemaining),
-              style: TextStyle(fontSize: 48),
+              style: const TextStyle(fontSize: 48),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _isRunning ? _stopTimer : _startTimer,
               child: Text(_isRunning ? 'Stop' : 'Start'),
@@ -273,6 +273,8 @@ class _PomodoroTimerState extends State<PomodoroTimer> {
 }
 
 class SummaryScreen extends StatelessWidget {
+  const SummaryScreen({super.key});
+
   Future<Map<String, dynamic>> _getDailySummary(String day) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -334,13 +336,13 @@ class SummaryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Summary'),
+        title: const Text('Summary'),
       ),
       body: FutureBuilder(
         future: _getWeeklySummary(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasData) {
             Map<String, dynamic> data = snapshot.data as Map<String, dynamic>;
             return Padding(
@@ -348,31 +350,31 @@ class SummaryScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Weekly Summary',
+                  const Text('Weekly Summary',
                       style:
                           TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   Text('Total Pomodoros: ${data['totalPomodoros']}'),
                   Text('Total Focus Time: ${data['totalFocusTime']} minutes'),
                   Text('Total Break Time: ${data['totalBreakTime']} minutes'),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   FutureBuilder(
                     future: _getDailySummary(
                         DateTime.now().toIso8601String().substring(0, 10)),
                     builder: (context, dailySnapshot) {
                       if (dailySnapshot.connectionState ==
                           ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
+                        return const Center(child: CircularProgressIndicator());
                       } else if (dailySnapshot.hasData) {
                         Map<String, dynamic> dailyData =
                             dailySnapshot.data as Map<String, dynamic>;
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Today\'s Summary',
+                            const Text('Today\'s Summary',
                                 style: TextStyle(
                                     fontSize: 24, fontWeight: FontWeight.bold)),
-                            SizedBox(height: 10),
+                            const SizedBox(height: 10),
                             Text(
                                 'Total Pomodoros: ${dailyData['totalPomodoros']}'),
                             Text(
@@ -389,7 +391,7 @@ class SummaryScreen extends StatelessWidget {
               ),
             );
           }
-          return Center(child: Text('No data available'));
+          return const Center(child: Text('No data available'));
         },
       ),
     );
@@ -397,6 +399,8 @@ class SummaryScreen extends StatelessWidget {
 }
 
 class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
   @override
   _SettingsScreenState createState() => _SettingsScreenState();
 }
@@ -471,13 +475,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Settings'),
+        title: const Text('Settings'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Text('Pomodoro Duration (minutes):'),
+            const Text('Pomodoro Duration (minutes):'),
             Slider(
               value: _pomodoroDuration.toDouble(),
               min: 15,
@@ -490,7 +494,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 });
               },
             ),
-            Text('Break Duration (minutes):'),
+            const Text('Break Duration (minutes):'),
             Slider(
               value: _breakDuration.toDouble(),
               min: 5,
@@ -503,7 +507,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 });
               },
             ),
-            Text('Long Break Duration (minutes):'),
+            const Text('Long Break Duration (minutes):'),
             Slider(
               value: _longBreakDuration.toDouble(),
               min: 10,
@@ -516,13 +520,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 });
               },
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 _saveDurations();
                 Navigator.pop(context, true);
               },
-              child: Text('Save'),
+              child: const Text('Save'),
             ),
           ],
         ),
@@ -532,6 +536,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 class TaskScreen extends StatefulWidget {
+  const TaskScreen({super.key});
+
   @override
   _TaskScreenState createState() => _TaskScreenState();
 }
@@ -594,7 +600,7 @@ class _TaskScreenState extends State<TaskScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Tasks'),
+        title: const Text('Tasks'),
       ),
       body: Column(
         children: [
@@ -605,8 +611,8 @@ class _TaskScreenState extends State<TaskScreen> {
               decoration: InputDecoration(
                 labelText: 'Task Name',
                 suffixIcon: DropdownButton<int>(
-                  hint: Text("Priority"),
-                  items: [
+                  hint: const Text("Priority"),
+                  items: const [
                     DropdownMenuItem(value: 1, child: Text("High")),
                     DropdownMenuItem(value: 2, child: Text("Medium")),
                     DropdownMenuItem(value: 3, child: Text("Low")),
