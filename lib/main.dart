@@ -1,551 +1,67 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-// Task model
-class Task {
-  String name;
-  int priority; // 1 = High, 2 = Medium, 3 = Low
-  bool isCompleted;
-  int pomodoroCount; // Tracks how many Pomodoros have been spent on this task
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
-  Task(
-      {required this.name,
-      required this.priority,
-      this.isCompleted = false,
-      this.pomodoroCount = 0});
+void main() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize the notifications plugin
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  final InitializationSettings initializationSettings =
+      InitializationSettings(android: initializationSettingsAndroid);
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+  runApp(MyApp());
+
 }
 
-void main() {
-  runApp(const PomodoroApp());
-}
-
-class PomodoroApp extends StatelessWidget {
-  const PomodoroApp({super.key});
-
+class MyApp extends StatelessWidget {
+  
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Pomodoro App',
       theme: ThemeData(
-        brightness: Brightness.dark, // Enable dark theme
         primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.black, // Black background for screens
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black, // Black app bar background
-          iconTheme: IconThemeData(color: Colors.white), // White icons
-          titleTextStyle:
-              TextStyle(color: Colors.white, fontSize: 20), // White title text
-        ),
-        textTheme: GoogleFonts.robotoCondensedTextTheme(
-          Theme.of(context).textTheme.apply(bodyColor: Colors.white),
-        ), // Apply white color),
-        buttonTheme: const ButtonThemeData(
-          buttonColor: Colors.blueAccent, // Sporty accent color for buttons
-        ),
-        iconTheme: const IconThemeData(color: Colors.white), // White icons globally
-        dropdownMenuTheme: const DropdownMenuThemeData(
-          textStyle: TextStyle(color: Colors.white), // White text for dropdown
-        ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor:
-              Colors.blueAccent, // Accent color for floating action buttons
-        ),
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: Colors.black,
       ),
-      home: const PomodoroTimer(),
+      home: PomodoroScreen(),
     );
   }
 }
 
-class PomodoroTimer extends StatefulWidget {
-  const PomodoroTimer({super.key});
+class Task {
+  String title;
+  int priority; // 1 = High, 2 = Medium, 3 = Low
+  bool isCompleted;
+  int pomodoroCount; // Tracks how many Pomodoros have been spent on this task
 
-  @override
-  _PomodoroTimerState createState() => _PomodoroTimerState();
-}
-
-class _PomodoroTimerState extends State<PomodoroTimer> {
-  int _pomodoroDuration = 25; // Default Pomodoro duration (minutes)
-  int _breakDuration = 5; // Default short break (minutes)
-  int _longBreakDuration = 15; // Default long break (minutes)
-  int _timeRemaining = 0;
-  bool _isBreak = false;
-  Timer? _timer;
-  bool _isRunning = false; // Track whether the timer is running or not
-  int _pomodoroCount = 0; // Count of Pomodoros completed in a row
-  List<Task> _tasks = []; // List of tasks
-  Task? _currentTask; // Currently selected task
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDurations(); // Load saved durations when the app starts
-    _loadTasks(); // Load tasks from SharedPreferences
-  }
-
-  // Load custom durations from SharedPreferences
-  void _loadDurations() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _pomodoroDuration = prefs.getInt('pomodoroDuration') ?? 25;
-      _breakDuration = prefs.getInt('breakDuration') ?? 5;
-      _longBreakDuration = prefs.getInt('longBreakDuration') ?? 15;
-      _timeRemaining =
-          _pomodoroDuration * 60; // Set initial timer to Pomodoro duration
-    });
-  }
-
-  // Load tasks from SharedPreferences
-  void _loadTasks() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? savedTasks = prefs.getStringList('tasks');
-    if (savedTasks != null) {
-      setState(() {
-        _tasks = savedTasks.map((task) {
-          List<String> taskDetails = task.split('|');
-          return Task(
-            name: taskDetails[0],
-            priority: int.parse(taskDetails[1]),
-            isCompleted: taskDetails[2] == 'true',
-            pomodoroCount: int.parse(taskDetails[3]),
-          );
-        }).toList();
-      });
-    }
-  }
-
-  // Save tasks back to SharedPreferences after Pomodoro is completed
-  void _saveTasks() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> taskList = _tasks
-        .map((task) =>
-            '${task.name}|${task.priority}|${task.isCompleted}|${task.pomodoroCount}')
-        .toList();
-    prefs.setStringList('tasks', taskList);
-  }
-
-  // Start the timer
-  void _startTimer() {
-    if (_timer != null) {
-      _timer!.cancel();
-    }
-
-    setState(() {
-      _isRunning = true; // Mark timer as running
-    });
-
-    if (_currentTask != null) {
-      // Increase the pomodoro count for the current task
-      setState(() {
-        _currentTask!.pomodoroCount++;
-      });
-      _saveTasks(); // Save the task with the updated Pomodoro count
-    }
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_timeRemaining > 0) {
-          _timeRemaining--;
-        } else {
-          _timer!.cancel();
-          _isRunning = false; // Mark timer as stopped
-
-          if (_isBreak) {
-            // After a break, reset to Pomodoro
-            _isBreak = false;
-            _timeRemaining = _pomodoroDuration * 60;
-          } else {
-            // After a Pomodoro
-            _pomodoroCount++;
-            if (_pomodoroCount % 4 == 0) {
-              // Take a longer break after every 4 Pomodoros
-              _timeRemaining = _longBreakDuration * 60;
-            } else {
-              // Take a short break
-              _timeRemaining = _breakDuration * 60;
-            }
-            _isBreak = true;
-          }
-        }
-      });
-    });
-  }
-
-  // Stop the timer
-  void _stopTimer() {
-    if (_timer != null) {
-      _timer!.cancel();
-    }
-    setState(() {
-      _isRunning = false; // Mark timer as stopped
-    });
-  }
-
-  // Open the settings screen
-  void _openSettings() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => SettingsScreen()),
-    );
-    // Reload the durations after returning from the settings screen
-    if (result != null) {
-      _loadDurations();
-    }
-  }
-
-  // Format time for display
-  String _formatTime(int seconds) {
-    int minutes = seconds ~/ 60;
-    int secs = seconds % 60;
-    return '$minutes:${secs.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pomodoro Timer'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: _openSettings,
-          ),
-          IconButton(
-            icon: const Icon(Icons.analytics),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => SummaryScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.list),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => TaskScreen()),
-              ).then((_) => _loadTasks());
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            DropdownButton<Task>(
-              hint: const Text('Select Task'),
-              value: _currentTask,
-              onChanged: (Task? newTask) {
-                setState(() {
-                  _currentTask = newTask!;
-                });
-              },
-              items: _tasks.map((task) {
-                return DropdownMenuItem<Task>(
-                  value: task,
-                  child: Text(task.name),
-                );
-              }).toList(),
-            ),
-            Text(
-              _isBreak
-                  ? (_pomodoroCount % 4 == 0 ? 'Long Break' : 'Break')
-                  : 'Pomodoro',
-              style: const TextStyle(fontSize: 32),
-            ),
-            Text(
-              _formatTime(_timeRemaining),
-              style: const TextStyle(fontSize: 48),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _isRunning ? _stopTimer : _startTimer,
-              child: Text(_isRunning ? 'Stop' : 'Start'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class SummaryScreen extends StatelessWidget {
-  const SummaryScreen({super.key});
-
-  Future<Map<String, dynamic>> _getDailySummary(String day) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Get Pomodoros and break data for the day
-    List<String> pomodoros = prefs.getStringList(day) ?? [];
-    int totalBreakTime = prefs.getInt('break_$day') ?? 0;
-
-    // Calculate total Pomodoros and focus time
-    int totalPomodoros = pomodoros.length;
-    int totalFocusTime = 0;
-
-    for (String session in pomodoros) {
-      List<String> times = session.split('|');
-      DateTime startTime = DateTime.parse(times[0]);
-      DateTime endTime = DateTime.parse(times[1]);
-      totalFocusTime += endTime.difference(startTime).inMinutes;
-    }
-
-    return {
-      'totalPomodoros': totalPomodoros,
-      'totalFocusTime': totalFocusTime,
-      'totalBreakTime': totalBreakTime,
-    };
-  }
-
-  Future<Map<String, dynamic>> _getWeeklySummary() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Initialize weekly totals
-    int totalPomodoros = 0;
-    int totalFocusTime = 0;
-    int totalBreakTime = 0;
-
-    DateTime now = DateTime.now();
-    for (int i = 0; i < 7; i++) {
-      String day =
-          now.subtract(Duration(days: i)).toIso8601String().substring(0, 10);
-
-      List<String> pomodoros = prefs.getStringList(day) ?? [];
-      totalBreakTime += prefs.getInt('break_$day') ?? 0;
-
-      for (String session in pomodoros) {
-        List<String> times = session.split('|');
-        DateTime startTime = DateTime.parse(times[0]);
-        DateTime endTime = DateTime.parse(times[1]);
-        totalFocusTime += endTime.difference(startTime).inMinutes;
-        totalPomodoros++;
-      }
-    }
-
-    return {
-      'totalPomodoros': totalPomodoros,
-      'totalFocusTime': totalFocusTime,
-      'totalBreakTime': totalBreakTime,
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Summary'),
-      ),
-      body: FutureBuilder(
-        future: _getWeeklySummary(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasData) {
-            Map<String, dynamic> data = snapshot.data as Map<String, dynamic>;
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Weekly Summary',
-                      style:
-                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Text('Total Pomodoros: ${data['totalPomodoros']}'),
-                  Text('Total Focus Time: ${data['totalFocusTime']} minutes'),
-                  Text('Total Break Time: ${data['totalBreakTime']} minutes'),
-                  const SizedBox(height: 20),
-                  FutureBuilder(
-                    future: _getDailySummary(
-                        DateTime.now().toIso8601String().substring(0, 10)),
-                    builder: (context, dailySnapshot) {
-                      if (dailySnapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (dailySnapshot.hasData) {
-                        Map<String, dynamic> dailyData =
-                            dailySnapshot.data as Map<String, dynamic>;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Today\'s Summary',
-                                style: TextStyle(
-                                    fontSize: 24, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 10),
-                            Text(
-                                'Total Pomodoros: ${dailyData['totalPomodoros']}'),
-                            Text(
-                                'Total Focus Time: ${dailyData['totalFocusTime']} minutes'),
-                            Text(
-                                'Total Break Time: ${dailyData['totalBreakTime']} minutes'),
-                          ],
-                        );
-                      }
-                      return Container();
-                    },
-                  ),
-                ],
-              ),
-            );
-          }
-          return const Center(child: Text('No data available'));
-        },
-      ),
-    );
-  }
-}
-
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
-
-  @override
-  _SettingsScreenState createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  int _pomodoroDuration = 25;
-  int _breakDuration = 5;
-  int _longBreakDuration = 15;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDurations();
-  }
-
-  // Load custom durations from SharedPreferences
-  void _loadDurations() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _pomodoroDuration = prefs.getInt('pomodoroDuration') ?? 25;
-      _breakDuration = prefs.getInt('breakDuration') ?? 5;
-      _longBreakDuration = prefs.getInt('longBreakDuration') ?? 15;
-    });
-  }
-
-  // Save custom durations to SharedPreferences
-  void _saveDurations() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setInt('pomodoroDuration', _pomodoroDuration);
-    prefs.setInt('breakDuration', _breakDuration);
-    prefs.setInt('longBreakDuration', _longBreakDuration);
-  }
-
-  void _logPomodoroCompletion() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Get current date
-    String today = DateTime.now().toIso8601String().substring(0, 10);
-
-    // Get Pomodoros completed today
-    List<String> completedPomodoros = prefs.getStringList(today) ?? [];
-
-    // Add current Pomodoro session
-    DateTime endTime = DateTime.now();
-    DateTime startTime = endTime.subtract(Duration(minutes: _pomodoroDuration));
-    String sessionLog =
-        '${startTime.toIso8601String()}|${endTime.toIso8601String()}';
-
-    completedPomodoros.add(sessionLog);
-
-    // Save the updated list for today
-    prefs.setStringList(today, completedPomodoros);
-  }
-
-  void _logBreakDuration(int breakDuration) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // Get current date
-    String today = DateTime.now().toIso8601String().substring(0, 10);
-
-    // Get total break time for today
-    int totalBreakTime = prefs.getInt('break_$today') ?? 0;
-
-    // Add current break duration
-    totalBreakTime += breakDuration;
-
-    // Save the updated total
-    prefs.setInt('break_$today', totalBreakTime);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Text('Pomodoro Duration (minutes):'),
-            Slider(
-              value: _pomodoroDuration.toDouble(),
-              min: 15,
-              max: 60,
-              divisions: 9,
-              label: _pomodoroDuration.toString(),
-              onChanged: (double value) {
-                setState(() {
-                  _pomodoroDuration = value.toInt();
-                });
-              },
-            ),
-            const Text('Break Duration (minutes):'),
-            Slider(
-              value: _breakDuration.toDouble(),
-              min: 5,
-              max: 15,
-              divisions: 2,
-              label: _breakDuration.toString(),
-              onChanged: (double value) {
-                setState(() {
-                  _breakDuration = value.toInt();
-                });
-              },
-            ),
-            const Text('Long Break Duration (minutes):'),
-            Slider(
-              value: _longBreakDuration.toDouble(),
-              min: 10,
-              max: 30,
-              divisions: 2,
-              label: _longBreakDuration.toString(),
-              onChanged: (double value) {
-                setState(() {
-                  _longBreakDuration = value.toInt();
-                });
-              },
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                _saveDurations();
-                Navigator.pop(context, true);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Task(
+      {required this.title,
+      required this.priority,
+      this.isCompleted = false,
+      this.pomodoroCount = 0});
 }
 
 class TaskScreen extends StatefulWidget {
-  const TaskScreen({super.key});
-
   @override
   _TaskScreenState createState() => _TaskScreenState();
 }
+
 
 class _TaskScreenState extends State<TaskScreen> {
   List<Task> _tasks = [];
   final TextEditingController _taskController = TextEditingController();
 
+  // Load tasks from SharedPreferences (if persistent storage is needed)
   @override
   void initState() {
     super.initState();
@@ -560,7 +76,7 @@ class _TaskScreenState extends State<TaskScreen> {
         _tasks = savedTasks.map((task) {
           List<String> taskDetails = task.split('|');
           return Task(
-            name: taskDetails[0],
+            title: taskDetails[0],
             priority: int.parse(taskDetails[1]),
             isCompleted: taskDetails[2] == 'true',
             pomodoroCount: int.parse(taskDetails[3]),
@@ -572,17 +88,15 @@ class _TaskScreenState extends State<TaskScreen> {
 
   void _saveTasks() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> taskList = _tasks
-        .map((task) =>
-            '${task.name}|${task.priority}|${task.isCompleted}|${task.pomodoroCount}')
-        .toList();
+    List<String> taskList = _tasks.map((task) => 
+      '${task.title}|${task.priority}|${task.isCompleted}|${task.pomodoroCount}').toList();
     prefs.setStringList('tasks', taskList);
   }
 
   // Add a new task to the list
   void _addTask(String name, int priority) {
     setState(() {
-      _tasks.add(Task(name: name, priority: priority));
+      _tasks.add(Task(title: name, priority: priority));
       _saveTasks();
     });
     _taskController.clear();
@@ -596,11 +110,12 @@ class _TaskScreenState extends State<TaskScreen> {
     });
   }
 
+  // Build the task list UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tasks'),
+        title: Text('Tasks'),
       ),
       body: Column(
         children: [
@@ -611,8 +126,8 @@ class _TaskScreenState extends State<TaskScreen> {
               decoration: InputDecoration(
                 labelText: 'Task Name',
                 suffixIcon: DropdownButton<int>(
-                  hint: const Text("Priority"),
-                  items: const [
+                  hint: Text("Priority"),
+                  items: [
                     DropdownMenuItem(value: 1, child: Text("High")),
                     DropdownMenuItem(value: 2, child: Text("Medium")),
                     DropdownMenuItem(value: 3, child: Text("Low")),
@@ -633,15 +148,12 @@ class _TaskScreenState extends State<TaskScreen> {
                 Task task = _tasks[index];
                 return ListTile(
                   title: Text(
-                    task.name,
+                    task.title,
                     style: TextStyle(
-                      decoration: task.isCompleted
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
+                      decoration: task.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
                     ),
                   ),
-                  subtitle: Text(
-                      'Priority: ${task.priority == 1 ? "High" : task.priority == 2 ? "Medium" : "Low"} | Pomodoros: ${task.pomodoroCount}'),
+                  subtitle: Text('Priority: ${task.priority == 1 ? "High" : task.priority == 2 ? "Medium" : "Low"} | Pomodoros: ${task.pomodoroCount}'),
                   trailing: Checkbox(
                     value: task.isCompleted,
                     onChanged: (value) {
@@ -656,4 +168,293 @@ class _TaskScreenState extends State<TaskScreen> {
       ),
     );
   }
+}
+
+class PomodoroScreen extends StatefulWidget {
+  @override
+  _PomodoroScreenState createState() => _PomodoroScreenState();
+}
+
+class _PomodoroScreenState extends State<PomodoroScreen> {
+  int _workDuration = 25; // in minutes
+  int _breakDuration = 5; // in minutes
+  int _longBreakDuration = 15; // in minutes after 4 sessions
+  int _pomodorosBeforeLongBreak = 4;
+  int _currentTimer = 0; // in seconds
+  bool _isRunning = false;
+  bool _isWorkSession = true;
+  int _pomodoroCount = 0;
+  Timer? _timer;
+
+  List<Task> _tasks = [];
+  Task? _selectedTask;
+
+  Future<void> _showAlarmNotification() async {
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      AndroidNotificationDetails(
+    'pomodoro_channel', // Channel ID
+    'Pomodoro Notifications', // Channel Name
+    //'Notification channel for Pomodoro timer', // Channel Description
+    importance: Importance.max,
+    priority: Priority.high,
+    playSound: true,
+    sound: RawResourceAndroidNotificationSound('notification'), // Make sure to add a sound file
+  );
+
+  const NotificationDetails platformChannelSpecifics =
+      NotificationDetails(android: androidPlatformChannelSpecifics);
+
+  await flutterLocalNotificationsPlugin.show(
+    0, // Notification ID
+    'Pomodoro Timer',
+    _isWorkSession ? 'Work session completed!' : 'Break time is over!',
+    platformChannelSpecifics,
+  );
+}
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
+  }
+
+  // Load tasks from SharedPreferences
+  void _loadTasks() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String>? savedTasks = prefs.getStringList('tasks');
+    if (savedTasks != null) {
+      setState(() {
+        _tasks = savedTasks.map((task) {
+          List<String> taskDetails = task.split('|');
+          return Task(
+            title: taskDetails[0],
+            priority: int.parse(taskDetails[1]),
+            isCompleted: taskDetails[2] == 'true',
+            pomodoroCount: int.parse(taskDetails[3]),
+          );
+        }).toList();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    setState(() {
+      _isRunning = true;
+      if (_currentTimer == 0) {
+        _currentTimer =
+            _isWorkSession ? _workDuration * 60 : _breakDuration * 60;
+      }
+    });
+
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_currentTimer > 0) {
+          _currentTimer--;
+        } else {
+          _timer?.cancel();
+          _showAlarmNotification(); // Call the notification when the timer ends
+
+          if (_isWorkSession) {
+            _pomodoroCount++;
+            if (_pomodoroCount % _pomodorosBeforeLongBreak == 0) {
+              _currentTimer = _longBreakDuration * 60;
+            } else {
+              _currentTimer = _breakDuration * 60;
+            }
+            // Increment pomodorosCompleted for the selected task
+            if (_selectedTask != null) {
+              _selectedTask!.pomodoroCount++;
+            }
+          } else {
+            _currentTimer = _workDuration * 60;
+          }
+          _isWorkSession = !_isWorkSession;
+          _isRunning = false;
+        }
+      });
+    });
+  }
+
+  void _stopTimer() {
+    setState(() {
+      _isRunning = false;
+      _timer?.cancel();
+    });
+  }
+
+  String _formatTime(int seconds) {
+    final int minutes = seconds ~/ 60;
+    final int remainingSeconds = seconds % 60;
+    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+// Save tasks back to SharedPreferences after Pomodoro is completed
+  void _saveTasks() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> taskList = _tasks.map((task) =>
+      '${task.title}|${task.priority}|${task.isCompleted}|${task.pomodoroCount}').toList();
+    prefs.setStringList('tasks', taskList);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Pomodoro Timer'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.list),
+            onPressed:() {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => TaskScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              _isWorkSession ? 'Work Session' : 'Break Time',
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 20),
+            Text(
+              _formatTime(_currentTimer),
+              style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 20),
+            if (_isWorkSession && _tasks.isNotEmpty)
+              DropdownButton<Task>(
+            hint: Text('Select Task'),
+            value: _selectedTask,
+            onChanged: (Task? newTask) {
+              setState(() {
+                _selectedTask = newTask!;
+              });
+            },
+                items: _tasks.map((task) {
+              return DropdownMenuItem<Task>(
+                value: task,
+                child: Text(task.title),
+              );
+            }).toList(),
+              ),
+            SizedBox(height: 40),
+            _isRunning
+                ? ElevatedButton(
+                    onPressed: _stopTimer,
+                    child: Text('Stop'),
+                    style: ElevatedButton.styleFrom(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                      textStyle: TextStyle(fontSize: 20),
+                    ),
+                  )
+                : ElevatedButton(
+                    onPressed: _startTimer,
+                    child: Text('Start'),
+                    style: ElevatedButton.styleFrom(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                      textStyle: TextStyle(fontSize: 20),
+                    ),
+                  ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _showSettingsDialog,
+              child: Text('Settings'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Timer Settings'),
+          content: IntrinsicHeight(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSettingsField('Work Duration (minutes)', _workDuration,
+                      (value) {
+                    setState(() {
+                      _workDuration = int.tryParse(value) ?? _workDuration;
+                    });
+                  }),
+                  _buildSettingsField(
+                      'Break Duration (minutes)', _breakDuration, (value) {
+                    setState(() {
+                      _breakDuration = int.tryParse(value) ?? _breakDuration;
+                    });
+                  }),
+                  _buildSettingsField(
+                      'Long Break Duration (minutes)', _longBreakDuration,
+                      (value) {
+                    setState(() {
+                      _longBreakDuration =
+                          int.tryParse(value) ?? _longBreakDuration;
+                    });
+                  }),
+                  _buildSettingsField(
+                      'Pomodoros Before Long Break', _pomodorosBeforeLongBreak,
+                      (value) {
+                    setState(() {
+                      _pomodorosBeforeLongBreak =
+                          int.tryParse(value) ?? _pomodorosBeforeLongBreak;
+                    });
+                  }),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSettingsField(
+      String label, int value, Function(String) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        initialValue: value.toString(),
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(),
+        ),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+
+
+  // Delete Task
+  
 }
