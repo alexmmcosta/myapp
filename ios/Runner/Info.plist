@@ -45,5 +45,48 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+<array>
+  <string>fetch</string>
+  <string>remote-notification</string>
+</array>
+<key>NSAppTransportSecurity</key>
+<dict>
+  <key>NSAllowsArbitraryLoads</key>
+  <true/>
+</dict>
+<key>NSUserTrackingUsageDescription</key>
+<string>We use this permission to send notifications when your Pomodoro timer finishes.</string>
+<key>UIUserNotificationSettings</key>
+<dict>
+  <key>UIUserNotificationAlert</key>
+  <true/>
+  <key>UIUserNotificationSound</key>
+  <true/>
+  <key>UIUserNotificationBadge</key>
+  <true/>
+</dict>
+<key>UIBackgroundModes</key>
+<array>
+  <string>fetch</string>
+  <string>remote-notification</string>
+</array>
+<key>NSAppTransportSecurity</key>
+<dict>
+  <key>NSAllowsArbitraryLoads</key>
+  <true/>
+</dict>
+<key>NSUserTrackingUsageDescription</key>
+<string>We use this permission to send notifications when your Pomodoro timer finishes.</string>
+<key>UIUserNotificationSettings</key>
+<dict>
+  <key>UIUserNotificationAlert</key>
+  <true/>
+  <key>UIUserNotificationSound</key>
+  <true/>
+  <key>UIUserNotificationBadge</key>
+  <true/>
+</dict>
+
 </dict>
 </plist>

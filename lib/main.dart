@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:html' as html;
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 void main() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize the notifications plugin
   const AndroidInitializationSettings initializationSettingsAndroid =
@@ -19,11 +21,9 @@ void main() async {
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
   runApp(MyApp());
-
 }
 
 class MyApp extends StatelessWidget {
-  
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -56,7 +56,6 @@ class TaskScreen extends StatefulWidget {
   _TaskScreenState createState() => _TaskScreenState();
 }
 
-
 class _TaskScreenState extends State<TaskScreen> {
   List<Task> _tasks = [];
   final TextEditingController _taskController = TextEditingController();
@@ -88,8 +87,10 @@ class _TaskScreenState extends State<TaskScreen> {
 
   void _saveTasks() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> taskList = _tasks.map((task) => 
-      '${task.title}|${task.priority}|${task.isCompleted}|${task.pomodoroCount}').toList();
+    List<String> taskList = _tasks
+        .map((task) =>
+            '${task.title}|${task.priority}|${task.isCompleted}|${task.pomodoroCount}')
+        .toList();
     prefs.setStringList('tasks', taskList);
   }
 
@@ -150,10 +151,13 @@ class _TaskScreenState extends State<TaskScreen> {
                   title: Text(
                     task.title,
                     style: TextStyle(
-                      decoration: task.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
+                      decoration: task.isCompleted
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
                     ),
                   ),
-                  subtitle: Text('Priority: ${task.priority == 1 ? "High" : task.priority == 2 ? "Medium" : "Low"} | Pomodoros: ${task.pomodoroCount}'),
+                  subtitle: Text(
+                      'Priority: ${task.priority == 1 ? "High" : task.priority == 2 ? "Medium" : "Low"} | Pomodoros: ${task.pomodoroCount}'),
                   trailing: Checkbox(
                     value: task.isCompleted,
                     onChanged: (value) {
@@ -190,27 +194,28 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
   Task? _selectedTask;
 
   Future<void> _showAlarmNotification() async {
-  const AndroidNotificationDetails androidPlatformChannelSpecifics =
-      AndroidNotificationDetails(
-    'pomodoro_channel', // Channel ID
-    'Pomodoro Notifications', // Channel Name
-    //'Notification channel for Pomodoro timer', // Channel Description
-    importance: Importance.max,
-    priority: Priority.high,
-    playSound: true,
-    sound: RawResourceAndroidNotificationSound('notification'), // Make sure to add a sound file
-  );
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'pomodoro_channel', // Channel ID
+      'Pomodoro Notifications', // Channel Name
+      //'Notification channel for Pomodoro timer', // Channel Description
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound(
+          'notification'), // Make sure to add a sound file
+    );
 
-  const NotificationDetails platformChannelSpecifics =
-      NotificationDetails(android: androidPlatformChannelSpecifics);
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
 
-  await flutterLocalNotificationsPlugin.show(
-    0, // Notification ID
-    'Pomodoro Timer',
-    _isWorkSession ? 'Work session completed!' : 'Break time is over!',
-    platformChannelSpecifics,
-  );
-}
+    await flutterLocalNotificationsPlugin.show(
+      0, // Notification ID
+      'Pomodoro Timer',
+      _isWorkSession ? 'Work session completed!' : 'Break time is over!',
+      platformChannelSpecifics,
+    );
+  }
 
   @override
   void initState() {
@@ -258,8 +263,11 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
           _currentTimer--;
         } else {
           _timer?.cancel();
-          _showAlarmNotification(); // Call the notification when the timer ends
-
+          if (kIsWeb) {
+            _showWebNotification(); // Show web notification for browser
+          } else {
+            _showAlarmNotification(); // Show mobile notification for Android/iOS
+          }
           if (_isWorkSession) {
             _pomodoroCount++;
             if (_pomodoroCount % _pomodorosBeforeLongBreak == 0) {
@@ -297,8 +305,10 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
 // Save tasks back to SharedPreferences after Pomodoro is completed
   void _saveTasks() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> taskList = _tasks.map((task) =>
-      '${task.title}|${task.priority}|${task.isCompleted}|${task.pomodoroCount}').toList();
+    List<String> taskList = _tasks
+        .map((task) =>
+            '${task.title}|${task.priority}|${task.isCompleted}|${task.pomodoroCount}')
+        .toList();
     prefs.setStringList('tasks', taskList);
   }
 
@@ -310,7 +320,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.list),
-            onPressed:() {
+            onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => TaskScreen()),
@@ -336,19 +346,19 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
             SizedBox(height: 20),
             if (_isWorkSession && _tasks.isNotEmpty)
               DropdownButton<Task>(
-            hint: Text('Select Task'),
-            value: _selectedTask,
-            onChanged: (Task? newTask) {
-              setState(() {
-                _selectedTask = newTask!;
-              });
-            },
+                hint: Text('Select Task'),
+                value: _selectedTask,
+                onChanged: (Task? newTask) {
+                  setState(() {
+                    _selectedTask = newTask!;
+                  });
+                },
                 items: _tasks.map((task) {
-              return DropdownMenuItem<Task>(
-                value: task,
-                child: Text(task.title),
-              );
-            }).toList(),
+                  return DropdownMenuItem<Task>(
+                    value: task,
+                    child: Text(task.title),
+                  );
+                }).toList(),
               ),
             SizedBox(height: 40),
             _isRunning
@@ -437,6 +447,33 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
     );
   }
 
+  void _requestNotificationPermission() {
+    if (html.Notification.supported) {
+      html.Notification.requestPermission().then((permission) {
+        if (permission == 'granted') {
+          print("Notification permission granted.");
+        } else {
+          print("Notification permission denied.");
+        }
+      });
+    } else {
+      print("Notifications are not supported on this browser.");
+    }
+  }
+
+  void _showWebNotification() {
+    if (html.Notification.supported) {
+      html.Notification notification = html.Notification(
+        _isWorkSession ? 'Work session completed!' : 'Break time is over!',
+        body: _isWorkSession
+            ? 'Time to take a short break.'
+            : 'Get ready for the next work session!',
+        icon:
+            'path_to_your_icon.png', // You can add a path to a small icon if desired
+      );
+    }
+  }
+
   Widget _buildSettingsField(
       String label, int value, Function(String) onChanged) {
     return Padding(
@@ -453,8 +490,5 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
     );
   }
 
-
-
   // Delete Task
-  
 }
